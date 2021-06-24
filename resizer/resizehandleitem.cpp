@@ -5,6 +5,7 @@
 #include <QCursor>
 #include <QGraphicsSceneMouseEvent>
 #include <QDebug>
+#include <QtMath>
 
 QHash<int, QWeakPointer<HandlerStrategy>> GraphicsItemResizer::HandleItem::Strategies;
 
@@ -34,7 +35,7 @@ GraphicsItemResizer::HandleItem::HandleItem(int attachmentFlags, const QSizeF &s
 void GraphicsItemResizer::HandleItem::targetRectChanged(const QRectF &targetRect)
 {
     QPointF newPos = targetRect.center();
-    mStrategy->alignPosition(targetRect, newPos);
+    mStrategy->alignHandlerPosition(&newPos, targetRect);
     setPos(newPos);
 }
 
@@ -163,16 +164,15 @@ void GraphicsItemResizer::HandleItem::mouseMoveEvent(QGraphicsSceneMouseEvent *e
         event->ignore();
         return;
     }
-    QPointF mousePos = event->pos();
-    QPointF offset = event->scenePos() - event->lastScenePos();
-    QRectF targetRect(QPointF(), resizer()->targetSize());
-    QSizeF minSize = resizer()->minSize();
-    QRectF bounds = boundingRect();
-    HandlerStrategy::PointPosition p = HandlerStrategy::PointPosition(mousePos, bounds);
 
-    mStrategy->solveConstraints(offset, minSize, targetRect, p);
+    auto offset = event->scenePos() - event->lastScenePos();
 
-    resizer()->updateTargetRect(targetRect);
+    auto handlerRect  = boundingRect();
+    auto mouseItemPos = event->pos();
+
+    auto pointPos = HandlerStrategy::PointPosition(mouseItemPos, handlerRect);
+
+    mStrategy->scaleTargetItem(resizer(), pointPos, offset);
 }
 
 void GraphicsItemResizer::HandleItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)

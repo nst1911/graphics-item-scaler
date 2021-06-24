@@ -4,6 +4,7 @@
 #include <QPointF>
 #include <QRectF>
 #include <QSizeF>
+#include "graphicsitemresizer.h"
 
 class HandlerStrategy
 {
@@ -28,11 +29,19 @@ public:
         Relation mY;
     };
 
+    enum TargetRectSide
+    {
+        Left,
+        Right,
+        Top,
+        Bottom
+    };
+
     explicit HandlerStrategy(HandlerStrategy *next = nullptr) : mNext(next) { }
     virtual ~HandlerStrategy();
 
-    virtual void solveConstraints(QPointF offset, QSizeF minSize, QRectF &targetRect, PointPosition pos) const;
-    virtual void alignPosition(const QRectF &targetRect, QPointF &position);
+    virtual void scaleTargetItem(GraphicsItemResizer* resizer, const PointPosition& pos, const QPointF& offset) const;
+    virtual void alignHandlerPosition(QPointF *position, const QRectF &boundingRect) const;
 
 protected:
     HandlerStrategy *mNext;
@@ -43,8 +52,9 @@ class TopHandlerStrategy : public HandlerStrategy
 public:
     explicit TopHandlerStrategy(HandlerStrategy *next = nullptr) : HandlerStrategy(next) { }
 
-    virtual void solveConstraints(QPointF offset, QSizeF minSize, QRectF &targetRect, PointPosition pos) const override;
-    virtual void alignPosition(const QRectF &targetRect, QPointF &position) override;
+    virtual void scaleTargetItem(GraphicsItemResizer* resizer, const PointPosition& pos, const QPointF& offset) const override;
+    virtual void alignHandlerPosition(QPointF *position, const QRectF &boundingRect) const override;
+
 };
 
 class BottomHandlerStrategy : public HandlerStrategy
@@ -52,8 +62,8 @@ class BottomHandlerStrategy : public HandlerStrategy
 public:
     explicit BottomHandlerStrategy(HandlerStrategy *next = nullptr) : HandlerStrategy(next) { }
 
-    virtual void solveConstraints(QPointF offset, QSizeF minSize, QRectF &targetRect, PointPosition pos) const override;
-    virtual void alignPosition(const QRectF &targetRect, QPointF &position) override;
+    virtual void scaleTargetItem(GraphicsItemResizer* resizer, const PointPosition& pos, const QPointF& offset) const override;
+    virtual void alignHandlerPosition(QPointF *position, const QRectF &boundingRect) const override;
 };
 
 class LeftHandlerStrategy : public HandlerStrategy
@@ -61,8 +71,8 @@ class LeftHandlerStrategy : public HandlerStrategy
 public:
     explicit LeftHandlerStrategy(HandlerStrategy *next = nullptr) : HandlerStrategy(next) { }
 
-    virtual void solveConstraints(QPointF offset, QSizeF minSize, QRectF &targetRect, PointPosition pos) const override;
-    virtual void alignPosition(const QRectF &targetRect, QPointF &position) override;
+    virtual void scaleTargetItem(GraphicsItemResizer* resizer, const PointPosition& pos, const QPointF& offset) const override;
+    virtual void alignHandlerPosition(QPointF *position, const QRectF &boundingRect) const override;
 };
 
 class RightHandlerStrategy : public HandlerStrategy
@@ -70,8 +80,8 @@ class RightHandlerStrategy : public HandlerStrategy
 public:
     explicit RightHandlerStrategy(HandlerStrategy *next = nullptr) : HandlerStrategy(next) { }
 
-    virtual void solveConstraints(QPointF offset, QSizeF minSize, QRectF &targetRect, PointPosition pos) const override;
-    virtual void alignPosition(const QRectF &targetRect, QPointF &position) override;
+    virtual void scaleTargetItem(GraphicsItemResizer* resizer, const PointPosition& pos, const QPointF& offset) const override;
+    virtual void alignHandlerPosition(QPointF *position, const QRectF &boundingRect) const override;
 };
 
 #endif // HANDLERSTRATEGIES_H

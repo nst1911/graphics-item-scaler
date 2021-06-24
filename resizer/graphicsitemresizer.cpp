@@ -1,19 +1,30 @@
 #include "graphicsitemresizer.h"
-
 #include "resizehandleitem.h"
-
+#include <QDebug>
 #include <QPainter>
-
+#include <QTransform>
 
 static QSizeF handleSize = QSizeF(6, 6);
 static QMarginsF handleBounds = QMarginsF(handleSize.width(), handleSize.height(), handleSize.width(), handleSize.height());
 
-GraphicsItemResizer::GraphicsItemResizer(QGraphicsItem *parent)
-    : QGraphicsItem(parent)
-    , mTargetSize(0, 0)
-    , mMinSize(0, 0)
+GraphicsItemResizer::GraphicsItemResizer(QGraphicsItem* target, QGraphicsItem *parent)
+    : QGraphicsObject(parent)
+    , mTarget(target)
 {
+    Q_ASSERT(mTarget);
+
+    setFlag(ItemIsMovable);
     setFlag(ItemHasNoContents);
+
+    mTarget->setParentItem(this);
+    mTarget->setPos(handleBounds.left(), handleBounds.top());
+    mTarget->setFlag(ItemIsMovable, false);
+
+    QPen p(Qt::gray, 1, Qt::DashLine);
+    p.setCosmetic(true);
+
+    setBoundingRectAreaPen(p);
+    setBoundingRectAreaBrush(QBrush(Qt::NoBrush));
 
     // sides
     mHandleItems.append(new HandleItem(HandleItem::Left, handleSize, this));
@@ -25,10 +36,38 @@ GraphicsItemResizer::GraphicsItemResizer(QGraphicsItem *parent)
     mHandleItems.append(new HandleItem(HandleItem::Top | HandleItem::Right, handleSize, this));
     mHandleItems.append(new HandleItem(HandleItem::Bottom | HandleItem::Right, handleSize, this));
     mHandleItems.append(new HandleItem(HandleItem::Bottom | HandleItem::Left, handleSize, this));
+
+    recalculate();
 }
 
 GraphicsItemResizer::~GraphicsItemResizer()
 {
+
+}
+
+QBrush GraphicsItemResizer::handleItemBrush() const
+{
+    return mHandleItemBrush;
+}
+
+QPen GraphicsItemResizer::handleItemPen() const
+{
+    return mHandleItemPen;
+}
+
+QBrush GraphicsItemResizer::boundingRectAreaBrush() const
+{
+    return mBoundingRectAreaBrush;
+}
+
+QPen GraphicsItemResizer::boundingRectAreaPen() const
+{
+    return mBoundingRectAreaPen;
+}
+
+bool GraphicsItemResizer::boundingRectAreaVisible() const
+{
+    return mBoundingRectAreaVisible;
 }
 
 QRectF GraphicsItemResizer::boundingRect() const
@@ -40,41 +79,83 @@ void GraphicsItemResizer::paint(QPainter *painter, const QStyleOptionGraphicsIte
 {
     Q_UNUSED(option)
     Q_UNUSED(widget)
-    QPen p(Qt::gray, 1, Qt::DashLine);
-    painter->setPen(p);
-    painter->drawRect(mBounds - handleBounds);
-}
 
-void GraphicsItemResizer::setPen(const QPen &pen)
-{
-    mPen = pen;
-    for (HandleItem *i : mHandleItems)
+    if (boundingRectAreaVisible())
     {
-        i->setPen(pen);
+        painter->setPen(boundingRectAreaPen());
+        painter->setBrush(boundingRectAreaBrush());
+        painter->drawRect(mBounds - handleBounds);
     }
 }
 
-void GraphicsItemResizer::setBrush(const QBrush &brush)
+void GraphicsItemResizer::setHandleItemPen(const QPen &pen)
 {
-    mBrush = brush;
-    for (HandleItem *i : mHandleItems)
+    if (mHandleItemPen != pen)
     {
-        i->setBrush(brush);
+        mHandleItemPen = pen;
+
+        for (HandleItem *i : mHandleItems)
+            i->setPen(pen);
     }
 }
 
-void GraphicsItemResizer::setTargetSize(const QSizeF &size)
+void GraphicsItemResizer::setHandleItemBrush(const QBrush &brush)
 {
-    if (size == targetSize())
+    if (mHandleItemBrush != brush)
     {
-        return;
+        mHandleItemBrush = brush;
+
+        for (HandleItem *i : mHandleItems)
+            i->setBrush(brush);
     }
-    updateDimensions(size);
 }
 
-void GraphicsItemResizer::setMinSize(const QSizeF &minSize)
+void GraphicsItemResizer::setBoundingRectAreaBrush(const QBrush &brush)
 {
-    mMinSize = minSize;
+    if (mBoundingRectAreaBrush != brush)
+    {
+        mBoundingRectAreaBrush = brush;
+        update();
+    }
+}
+
+void GraphicsItemResizer::setBoundingRectAreaPen(const QPen &pen)
+{
+    if (mBoundingRectAreaPen != pen)
+    {
+        mBoundingRectAreaPen = pen;
+        update();
+    }
+}
+
+void GraphicsItemResizer::setBoundingRectAreaVisible(bool visible)
+{
+    if (mBoundingRectAreaVisible != visible)
+    {
+        mBoundingRectAreaVisible = visible;
+        setFlag(ItemHasNoContents, !mBoundingRectAreaVisible);
+        update();
+    }
+}
+
+void GraphicsItemResizer::recalculate()
+{   
+    auto rect = targetBoundingRect();
+    auto diff = rect.topLeft() - QPointF(handleBounds.left(), handleBounds.top());
+
+    updateBoundingRectSize((QRectF(QPointF(), rect.size()) + handleBounds).size());
+
+    mTarget->setPos(mTarget->pos() - diff);
+}
+
+QGraphicsItem *GraphicsItemResizer::target() const
+{
+    return mTarget;
+}
+
+QRectF GraphicsItemResizer::targetBoundingRect() const
+{
+    return mapFromItem(mTarget, mTarget->shape()).boundingRect();
 }
 
 bool GraphicsItemResizer::handlersIgnoreTransformations() const
@@ -96,29 +177,17 @@ void GraphicsItemResizer::setHandlersIgnoreTransformations(bool ignore)
 void GraphicsItemResizer::updateHandleItemPositions()
 {
     QRectF innerRect = mBounds - handleBounds;
+
     for (HandleItem *i : mHandleItems)
-    {
         i->targetRectChanged(innerRect);
-    }
 }
 
-void GraphicsItemResizer::updateTargetRect(const QRectF &rect)
+void GraphicsItemResizer::updateBoundingRectSize(const QSizeF& size)
 {
-    if (rect.size() == targetSize())
+    if (mBounds.size() != size)
     {
-        return;
+        prepareGeometryChange();
+        mBounds = QRectF(QPointF(), size);
+        updateHandleItemPositions();
     }
-    updateDimensions(rect.size());
-    emit targetRectChanged(rect);
-}
-
-
-void GraphicsItemResizer::updateDimensions(QSizeF newSize)
-{
-    prepareGeometryChange();
-    mTargetSize = newSize;
-    QRectF rect = QRectF(QPointF(), newSize) + handleBounds;
-    setPos(rect.topLeft());
-    mBounds = QRectF(QPointF(), rect.size());
-    updateHandleItemPositions();
 }
