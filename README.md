@@ -17,7 +17,7 @@ Use `setHandlersIgnoreTransformations` to force handler items ignore all transfo
 For example, it would be useful when attached graphics views can be zoomed or rotated -
 handlers will have the same size and relative position.
 
-The example of using QGraphicsScaler is in the constructor of `MainWindow` class in
+The example of using `GraphicsItemScaler` is in the constructor of `MainWindow` class in
  `mainwindow.cpp` file.
 
 ### License
