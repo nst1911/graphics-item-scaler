@@ -3,7 +3,7 @@
 
 #include <QMainWindow>
 #include <QGraphicsItem>
-#include "resizer/graphicsitemresizer.h"
+#include "scaler/graphicsitemscaler.h"
 
 namespace Ui {
 class MainWindow;
@@ -20,7 +20,7 @@ public:
 private:
     Ui::MainWindow *ui;
     QGraphicsItem* mTestItem;
-    GraphicsItemResizer* mResizer;
+    GraphicsItemScaler* mScaler;
 };
 
 #endif // MAINWINDOW_H

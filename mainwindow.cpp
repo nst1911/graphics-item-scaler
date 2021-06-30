@@ -1,6 +1,5 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "resizer/graphicsitemresizer.h"
 #include <QGraphicsRectItem>
 #include <QDebug>
 
@@ -15,17 +14,12 @@ MainWindow::MainWindow(QWidget *parent) :
     item->setPen(QColor(102, 102, 102));
     item->setBrush(QColor(158, 204, 255));
 
-    GraphicsItemResizer *resizer = new GraphicsItemResizer(item);
-    resizer->setPos(10, 10);
-    resizer->setHandleItemBrush(QColor(64, 64, 64));
-    resizer->setHandlersIgnoreTransformations(true);
-    resizer->setBoundingRectAreaVisible(true);
-    scene->addItem(resizer);
-//    QObject::connect(resizer, &GraphicsItemResizer::targetRectChanged, [item](const QRectF &rect)
-//    {
-//        QRectF old = item->rect();
-//        item->setRect(QRectF(old.topLeft(), rect.size()));
-//    });
+    GraphicsItemScaler *scaler = new GraphicsItemScaler(item);
+    scaler->setPos(10, 10);
+    scaler->setHandleItemBrush(QColor(64, 64, 64));
+    scaler->setHandlersIgnoreTransformations(true);
+    scaler->setBoundingRectAreaVisible(true);
+    scene->addItem(scaler);
 
     ui->graphicsView->setScene(scene);
     ui->graphicsView->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -33,7 +27,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->graphicsView->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
 
     mTestItem = item;
-    mResizer = resizer;
+    mScaler = scaler;
 
     connect(ui->plusButton, &QPushButton::clicked, this, [&]() {
         ui->graphicsView->scale(1.2, 1.2);
@@ -43,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent) :
     });
     connect(ui->spinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, [&]() {
         mTestItem->setRotation(ui->spinBox->value());
-        mResizer->recalculate();
+        mScaler->recalculate(); // You have to call it every time your item's rotation is changed
     });
 }
 

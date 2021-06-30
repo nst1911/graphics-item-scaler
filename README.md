@@ -1,28 +1,24 @@
-# Resizer item
+# QGraphicsItem interactive scaling class
 
-`GraphicsItemResizer` is a `QGraphicsItem` for interactive resizing of some target rectangular
-area (for example, to change size and position of some `QGraphicsItem`, as in demo project).
-It shows 8 handles within container item for each resizing direction and supports
-minimum size constraint for target rect (i.e. you can't make size of target rect
-smaller than specified).
+`GraphicsItemScaler` is a `QGraphicsItem`-based container class for interactive scaling of 
+`QGraphicsItem`s with 8 handle items for each direction (left-top, top, right-top, right, 
+right-bottom, bottom, left-bottom, left). 
 
 ### How to use it
-Copy `resizer` dir to your project. Include file `resizer/graphicsitemresizer.h`.
-Create instance of `GraphicsItemResizer` class, set initial target area size
-and minimum size if needed.
 
-Use `setTargetSize` slot to notify resizer item about target area size changes.
+Copy `scaler` dir to your project. Include file `scaler/graphicsitemscaler.h`.
+Create instance of `GraphicsItemScaler` class and set your target graphics item as a parent.
 
-To handle size and position changes subscribe to `GraphicsItemResizer::targetRectChanged`
-signal. Position of received rectangle contains target area's left top corner offset
-and size is equal to new size.
-
-You can change pen and brush for resizer handles using `setPen` and `setBrush`
-methods.
+You can change pen and brush for handle items using `setHandleItemPen` and 
+`setHandleItemBrush` methods. Pen and brush of container item bounding rect area can 
+be changed with `setBoundingRectAreaPen` and `setBoundingRectAreaBrush` as well.
 
 Use `setHandlersIgnoreTransformations` to force handler items ignore all transformations. 
 For example, it would be useful when attached graphics views can be zoomed or rotated -
 handlers will have the same size and relative position.
 
+The example of using QGraphicsScaler is in the constructor of `MainWindow` class in
+ `mainwindow.cpp` file.
+
 ### License
-Resizer item is licensed under the Apache License, Version 2.0. See LICENSE for details.
+Licensed under the Apache License, Version 2.0. See LICENSE for details.
