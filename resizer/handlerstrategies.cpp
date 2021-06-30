@@ -3,12 +3,12 @@
 #include <QDebug>
 #include <QTransform>
 
-void HandlerStrategy::scaleTargetItem(GraphicsItemResizer *resizer, const HandlerStrategy::PointPosition &pos, const QPointF &offset) const
+void HandlerStrategy::solveConstraints(GraphicsItemResizer *resizer, const HandlerStrategy::PointPosition &pos, const QPointF &offset) const
 {
     Q_ASSERT(resizer);
 
     if (mNext != nullptr)
-        mNext->scaleTargetItem(resizer, pos, offset);
+        mNext->solveConstraints(resizer, pos, offset);
 }
 
 void HandlerStrategy::alignHandlerPosition(QPointF *position, const QRectF &boundingRect) const
@@ -19,37 +19,74 @@ void HandlerStrategy::alignHandlerPosition(QPointF *position, const QRectF &boun
         mNext->alignHandlerPosition(position, boundingRect);
 }
 
+void HandlerStrategy::scaleTargetItem(GraphicsItemResizer *resizer, const QMarginsF &margins) const
+{
+    auto moveResizer = !qFuzzyIsNull(margins.left()) || !qFuzzyIsNull(margins.top());
+    auto horizontal  = !qFuzzyIsNull(margins.left()) || !qFuzzyIsNull(margins.right());
+    auto vertical    = !qFuzzyIsNull(margins.top()) || !qFuzzyIsNull(margins.bottom());
+
+
+    if ((!horizontal && !vertical) || (horizontal && vertical))
+        return;
+
+    auto target = resizer->target();
+
+    if (!target)
+        return;
+
+    auto oldRect = target->boundingRect();
+    auto newRect = oldRect + margins;
+
+    // To avoid dividing to 0
+    if (qFuzzyIsNull(horizontal ? oldRect.width() : oldRect.height()))
+        return;
+
+    auto scaleCorrection = horizontal ? (newRect.width() / oldRect.width()) - 1
+                                      : (newRect.height() / oldRect.height()) - 1;
+
+    auto targetTransform = target->transform();
+    auto m11 = horizontal ? (targetTransform.m11() + scaleCorrection) : targetTransform.m11();
+    auto m12 = targetTransform.m12();
+    auto m13 = targetTransform.m13();
+    auto m21 = targetTransform.m21();
+    auto m22 = vertical ? (targetTransform.m22() + scaleCorrection) : targetTransform.m22();
+    auto m23 = targetTransform.m23();
+    auto m31 = targetTransform.m31();
+    auto m32 = targetTransform.m32();
+    auto m33 = targetTransform.m33();
+
+    if (m11 < 0 || m22 < 0) return; // To avoid a scaling direction inversion
+
+    target->setTransform(QTransform(m11, m12, m13, m21, m22, m23, m31, m32, m33));
+
+    if (moveResizer)
+    {
+        auto before = resizer->boundingRect().size();
+        resizer->recalculate();
+        auto after  = resizer->boundingRect().size();
+
+        auto diff = QPointF(before.width() - after.width(), before.height() - after.height());
+        resizer->setPos(resizer->pos() + diff);
+    }
+    else
+        resizer->recalculate();
+}
+
 HandlerStrategy::~HandlerStrategy()
 {
     delete mNext;
     mNext = nullptr;
 }
 
-void TopHandlerStrategy::scaleTargetItem(GraphicsItemResizer* resizer, const HandlerStrategy::PointPosition &pos, const QPointF &offset) const
+void TopHandlerStrategy::solveConstraints(GraphicsItemResizer* resizer, const HandlerStrategy::PointPosition &pos, const QPointF &offset) const
 {
     Q_ASSERT(resizer);
     Q_ASSERT(resizer->target());
 
     if (offset.y() >= 0 || !pos.yBelow())
-    {
-        auto target  = resizer->target();
+        scaleTargetItem(resizer, QMarginsF(0, -offset.y(), 0, 0));
 
-        auto newRect = target->boundingRect().adjusted(0, offset.y(), 0, 0);
-
-        Q_ASSERT(target->boundingRect().height());
-        auto scaleFactor    = newRect.height() / target->boundingRect().height();
-        auto scaleTransform = target->transform().scale(1, scaleFactor);
-
-        target->setTransform(scaleTransform);
-
-        auto heightBefore = resizer->boundingRect().height();
-        resizer->recalculate();
-        auto heightAfter  = resizer->boundingRect().height();
-
-        resizer->setPos(resizer->pos() + QPointF(0, heightBefore - heightAfter));
-    }
-
-    HandlerStrategy::scaleTargetItem(resizer, pos, offset);
+    HandlerStrategy::solveConstraints(resizer, pos, offset);
 }
 
 void TopHandlerStrategy::alignHandlerPosition(QPointF *position, const QRectF &boundingRect) const
@@ -60,27 +97,15 @@ void TopHandlerStrategy::alignHandlerPosition(QPointF *position, const QRectF &b
     HandlerStrategy::alignHandlerPosition(position, boundingRect);
 }
 
-void BottomHandlerStrategy::scaleTargetItem(GraphicsItemResizer* resizer, const HandlerStrategy::PointPosition &pos, const QPointF &offset) const
+void BottomHandlerStrategy::solveConstraints(GraphicsItemResizer* resizer, const HandlerStrategy::PointPosition &pos, const QPointF &offset) const
 {
     Q_ASSERT(resizer);
     Q_ASSERT(resizer->target());
 
     if (offset.y() < 0 || !pos.yAbove())
-    {
-        auto target  = resizer->target();
+        scaleTargetItem(resizer, QMarginsF(0, 0, 0, offset.y()));
 
-        auto newRect = target->boundingRect().adjusted(0, 0, 0, offset.y());
-
-        Q_ASSERT(target->boundingRect().height());
-        auto scaleFactor    = newRect.height() / target->boundingRect().height();
-        auto scaleTransform = target->transform().scale(1, scaleFactor);
-
-        target->setTransform(scaleTransform);
-
-        resizer->recalculate();
-    }
-
-    HandlerStrategy::scaleTargetItem(resizer, pos, offset);
+    HandlerStrategy::solveConstraints(resizer, pos, offset);
 }
 
 void BottomHandlerStrategy::alignHandlerPosition(QPointF *position, const QRectF &boundingRect) const
@@ -91,31 +116,14 @@ void BottomHandlerStrategy::alignHandlerPosition(QPointF *position, const QRectF
     HandlerStrategy::alignHandlerPosition(position, boundingRect);
 }
 
-void LeftHandlerStrategy::scaleTargetItem(GraphicsItemResizer* resizer, const HandlerStrategy::PointPosition &pos, const QPointF &offset) const
+void LeftHandlerStrategy::solveConstraints(GraphicsItemResizer* resizer, const HandlerStrategy::PointPosition &pos, const QPointF &offset) const
 {
     Q_ASSERT(resizer);
-    Q_ASSERT(resizer->target());
 
     if (offset.x() >= 0 || !pos.xToTheRight())
-    {
-        auto target  = resizer->target();
+        scaleTargetItem(resizer, QMarginsF(-offset.x(), 0, 0, 0));
 
-        auto newRect = target->boundingRect().adjusted(offset.x(), 0, 0, 0);
-
-        Q_ASSERT(target->boundingRect().width());
-        auto scaleFactor    = newRect.width() / target->boundingRect().width();
-        auto scaleTransform = target->transform().scale(scaleFactor, 1);
-
-        target->setTransform(scaleTransform);
-
-        auto widthBefore = resizer->boundingRect().width();
-        resizer->recalculate();
-        auto widthAfter  = resizer->boundingRect().width();
-
-        resizer->setPos(resizer->pos() + QPointF(widthBefore - widthAfter, 0));
-    }
-
-    HandlerStrategy::scaleTargetItem(resizer, pos, offset);
+    HandlerStrategy::solveConstraints(resizer, pos, offset);
 }
 
 void LeftHandlerStrategy::alignHandlerPosition(QPointF *position, const QRectF &boundingRect) const
@@ -126,27 +134,14 @@ void LeftHandlerStrategy::alignHandlerPosition(QPointF *position, const QRectF &
     HandlerStrategy::alignHandlerPosition(position, boundingRect);
 }
 
-void RightHandlerStrategy::scaleTargetItem(GraphicsItemResizer* resizer, const HandlerStrategy::PointPosition &pos, const QPointF &offset) const
+void RightHandlerStrategy::solveConstraints(GraphicsItemResizer* resizer, const HandlerStrategy::PointPosition &pos, const QPointF &offset) const
 {
     Q_ASSERT(resizer);
-    Q_ASSERT(resizer->target());
 
     if (offset.x() < 0 || !pos.xToTheLeft())
-    {
-        auto target  = resizer->target();
+        scaleTargetItem(resizer, QMarginsF(0, 0, offset.x(), 0));
 
-        auto newRect = target->boundingRect().adjusted(0, 0, offset.x(), 0);
-
-        Q_ASSERT(target->boundingRect().width());
-        auto scaleFactor    = newRect.width() / target->boundingRect().width();
-        auto scaleTransform = target->transform().scale(scaleFactor, 1);
-
-        target->setTransform(scaleTransform);
-
-        resizer->recalculate();
-    }
-
-    HandlerStrategy::scaleTargetItem(resizer, pos, offset);
+    HandlerStrategy::solveConstraints(resizer, pos, offset);
 }
 
 void RightHandlerStrategy::alignHandlerPosition(QPointF *position, const QRectF &boundingRect) const

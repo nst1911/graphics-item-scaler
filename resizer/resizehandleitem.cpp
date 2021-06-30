@@ -165,14 +165,10 @@ void GraphicsItemResizer::HandleItem::mouseMoveEvent(QGraphicsSceneMouseEvent *e
         return;
     }
 
-    auto offset = event->scenePos() - event->lastScenePos();
+    auto offset   = event->scenePos() - event->lastScenePos();
+    auto pointPos = HandlerStrategy::PointPosition(event->pos(), boundingRect());
 
-    auto handlerRect  = boundingRect();
-    auto mouseItemPos = event->pos();
-
-    auto pointPos = HandlerStrategy::PointPosition(mouseItemPos, handlerRect);
-
-    mStrategy->scaleTargetItem(resizer(), pointPos, offset);
+    mStrategy->solveConstraints(resizer(), pointPos, offset);
 }
 
 void GraphicsItemResizer::HandleItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
